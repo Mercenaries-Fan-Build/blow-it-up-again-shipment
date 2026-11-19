@@ -1,0 +1,773 @@
+format: 2
+
+shipment:
+  name: blow-it-up-again
+  title: Blow It Up Again
+  version: 0.4.0
+  target: retail
+  authors: [Austin Kregel]
+  description: The Blow It Up Again DLC as a PC level, built on the player's machine from Sony's PS3 package.
+  quartermaster: ">=7.1.0, <8"
+  tags: [dlc, level]
+
+load:
+  requires:
+    # The ASI imports m2-sdk.dll: its Lua host (the namespaces it adds to every state, the chunk executor)
+    # and its log. Without the DLL Windows refuses to load the ASI.
+    - { shipment: m2-sdk, version: ">=0.6.2" }
+    - { shipment: mercs2-unofficial-patch, version: ">=0.6.1" }
+    # multiplayer-restored registers the DLC's leaderboard, user-name and cheats bindings
+    # (Net.LeaderboardGetScore, Net.LeaderboardPushScore, Net.GetUserName, Pg.SetCheatsUsed, Pg.WereCheatsUsed)
+    # and posts the scores to its server as the player's account.
+    - { shipment: multiplayer-restored, version: ">=0.6.0" }
+
+contributions:
+  # The DLC itself: Sony's PS3 package, downloaded and converted on the player's machine at build. No byte of
+  # it ships in this Shipment; every row below with `from: biua_ps3` takes its asset from that conversion.
+  - kind: fetch_package
+    id: biua_ps3
+    format: ps3_dlc_pkg
+    url: http://zeus.dl.playstation.net/cdn/UP0006/BLUS30056_00/1ntHdj11R8gYK1qjpRcpRGHI3bEQBhL6i616GVXFV8bh78m4U6iSVyAiYJ4q9RNv6JnuURsk8CN8WWTLSdJU9cT631f4tHSHg7XBs.pkg
+    sha256: d62081de1b9efbc484766fb586adba04b03edd5f8571ed03cf6e722bd70263e4
+    size: 407578320
+  # The ASI (built from client/ by client/scripts/build_asi.sh): the Lua engine functions the DLC's scripts
+  # call that PC v1.1 never registered, added to the engine's own tables through m2-sdk.dll's Lua host. It
+  # detours no game code itself.
+  - kind: native_hook
+    target: retail
+    plugin: src/blow_it_up_again.asi
+    # The bindings it adds (client/src/registry.rs). Human.SetChatterSet is how the outfits below apply
+    # their chatter sets in the main campaign too (qm's M0264).
+    touches: ["Net.DLCGetMountPoint", "Human.SetChatterSet"]
+  # Blow It Up Again in the shell's Extras > DLC page: the front end's library lists the entry and starts the
+  # dlc01 level when it is chosen (src/lua/biua_extras_dlc.lua).
+  - kind: add_script
+    name: biua_extras_dlc
+    source: src/lua/biua_extras_dlc.lua
+    load: { when: shell.boot, in: [front_end] }
+  # The DLC's vehicles in the main campaign, sold in Eva's PMC shop: the M1A1 and M1A3 tanks, the Hammerhead
+  # (DLC Armored Monster), the Recoilless Panhard and The Hadron (DLC_Veyron). Their level-only assets ship in
+  # the overlay as level: vz rows, converted from the package like the dlc01 level; their templates are
+  # appended to the game's worldentity under the keys the DLC gives them. The M1A1's template is already in
+  # vz.wad. The strings file names the shop items and adds the DLC's own names of the Hammerhead, the
+  # Recoilless Panhard and The Hadron, whose keys only the DLC's table has.
+  - kind: level_asset
+    level: vz
+    type: animation
+    name: energy_coil
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: model
+    name: "0x0ACD3571"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: model
+    name: "0x7EE94B4E"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: model
+    name: "0x86EDD514"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: model
+    name: "0x8E506F48"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: model
+    name: "0x90C80CB4"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: script
+    name: dlc_moonpatrol
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x0DB039DC"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x0F1D7F4E"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x154F020E"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x18F6CAF1"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x1DB5064A"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x24D99932"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x262EFD4F"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x28661118"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x2B485321"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x2B569CFD"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x2D05D943"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x36C085F3"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x37130E74"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x38C95FC8"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x4363608C"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x476765CB"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x4A7144F2"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x526E3FD9"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x575747D4"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x5838B15D"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x5B0E6194"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x5B6AE23B"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x62EA47B4"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x64F17414"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x6B57D0E8"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x6E8F454F"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x6ED87C6E"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x72465F0F"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x78A43F5B"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x79B73716"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x7A22452F"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x837CF6FB"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x92C2DA0B"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0x9D2A1EAE"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xA9C2975B"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xAEC03390"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xBA450127"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xBA9270C0"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xBF9956D2"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xC5A037B8"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xC6BD374E"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xC7308EBA"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xD5EF7F20"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xE0F5DE71"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xE6F933D1"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xEC84B6BA"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xF0B7AED2"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xF6BE8FB8"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xF75422D2"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xF90023BA"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xFA9C1B4D"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xFBDE8006"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xFC422462"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: "0xFD5B03B8"
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: world_entity_data
+    name: "0x50075B3B"
+    from: biua_ps3
+    templates:
+      - DLC_M1A3
+      - Vehicle Seat (DLC M1A3) (Driver)
+      - Mounted TOW Missile (1) (hp_barreltip_missile_ra) (dlc)
+      - Mounted TOW Missile (1) (hp_barreltip_missile_rb) (dlc)
+      - Mounted TOW Missile (1) (hp_barreltip_missile_rc) (dlc)
+      - Mounted TOW Missile (1) (hp_barreltip_missile_rd) (dlc)
+      - Mounted TOW Missile (1) (hp_barreltip_missile_re) (dlc)
+      - Mounted TOW Missile (1) (hp_barreltip_missile_rf) (dlc)
+      - Mounted TOW Missile (1) (hp_barreltip_missile_la) (dlc)
+      - Mounted TOW Missile (1) (hp_barreltip_missile_lb) (dlc)
+      - Mounted TOW Missile (1) (hp_barreltip_missile_lc) (dlc)
+      - Mounted TOW Missile (1) (hp_barreltip_missile_ld) (dlc)
+      - Mounted TOW Missile (1) (hp_barreltip_missile_le) (dlc)
+      - Mounted TOW Missile (1) (hp_barreltip_missile_lf) (dlc)
+      - Mounted Tank Gun (Railgun Slug) (DLC)
+      - Tank Shell (Railgun Slug) (DLC)
+      - DLC SUPER TOW Missile
+      - "Explosion (Super TOW) "
+      - DLC Armored Monster
+      - DLC_MonsterRTR_Driver
+      - Vehicle Seat (2 Seat) (seat_front_left) DLC (armoredmonster)
+      - Mounted Panhard Recoiless (DLCCon002)
+      - Mounted Panhard Recoiless (DLCCon002)b
+      - Mounted SAM (DLC2)
+      - Grenade MG Projectile (DLCCon002)
+      - Explosion (Handheld RPG) DLC_nolight
+      - Panhard (DLCCON004)
+      - Mounted Panhard Recoiless (DLCCon004)
+      - DLC_Veyron (Assault)
+      - DLC_Mounted AT Missile (Veyron)
+      - DLC_Vehicle AT Missile
+    # The DLC locks the Hammerhead's driver in (its race); in the main campaign the driver may leave.
+    edits:
+      Vehicle Seat (2 Seat) (seat_front_left) DLC (armoredmonster):
+        EntranceToSeat: { CanExit: true }
+  - kind: add_stringdb_keys
+    target: english
+    strings: src/strings/english_vz_shop.txt
+  - kind: add_shop_item
+    id: dlcm1a1
+    name: "[vehicle.dlc_m1a1]"
+    description: "[support.vehicle.dlc_m1a1.desc]"
+    icon: vehicles_tank_m1a2
+    shops: [pmc]
+    type: heavy
+    cash_cost: 250000
+    fuel_cost: 240
+    unlocked: true
+    behaviour: { module: mrxcratedelivery, cargo: DLC_M1A1, delivery_vehicle: "Mi26 (PMC) (Driver)" }
+  - kind: add_shop_item
+    id: dlcm1a3
+    name: "[vehicle.dlc_m1a3]"
+    description: "[support.vehicle.dlc_m1a3.desc]"
+    icon: vehicles_tank_m1a2
+    shops: [pmc]
+    type: heavy
+    cash_cost: 250000
+    fuel_cost: 240
+    unlocked: true
+    behaviour: { module: mrxcratedelivery, cargo: DLC_M1A3, delivery_vehicle: "Mi26 (PMC) (Driver)" }
+  - kind: add_shop_item
+    id: dlchammerhead
+    name: "[vehicle.dlc_hammerhead]"
+    description: "[support.vehicle.dlc_hammerhead.desc]"
+    icon: vehicles_car_monsterCar
+    shops: [pmc]
+    type: civilian
+    cash_cost: 250000
+    fuel_cost: 60
+    unlocked: true
+    behaviour: { module: mrxcratedelivery, cargo: DLC Armored Monster }
+  - kind: add_shop_item
+    id: dlcrecoillesspanhard
+    name: "[vehicle.dlc_recoilless_panhard]"
+    description: "[support.vehicle.dlc_recoilless_panhard.desc]"
+    icon: vehicles_light_vulcan
+    shops: [pmc]
+    type: light
+    cash_cost: 250000
+    fuel_cost: 60
+    unlocked: true
+    behaviour: { module: mrxcratedelivery, cargo: Panhard (DLCCON004) }
+  - kind: add_shop_item
+    id: dlchadron
+    name: "[vehicle.dlc_hadron]"
+    description: "[support.vehicle.dlc_hadron.desc]"
+    icon: vehicles_light_urban_commando
+    shops: [pmc]
+    type: light
+    cash_cost: 250000
+    fuel_cost: 60
+    unlocked: true
+    behaviour: { module: mrxcratedelivery, cargo: DLC_Veyron (Assault) }
+  # The DLC's Obama and Palin outfits for every hero and Gramps for Mattias, in the main campaign's
+  # wardrobe: always offered, each with the chatter set the DLC gives it (dlc01_pmcinterior.lua:2144-2149),
+  # and swapped for the hero's own model during briefings, as the DLC does (bNoBriefing). The DLC's own
+  # wardrobe already has all three, so they join the main campaign alone (no levels). Their models, the
+  # chatter sets, the DLC's voice banks and the textures vz.wad lacks ship below as level: vz rows, converted
+  # from the package like the dlc01 level; the voice stream is the one the add_level installs.
+  - kind: add_outfit
+    name: pmc_hum_obama
+    slug: Obama
+    display: "[SHELL.Costumes.obama]"
+    wearer: [chris, jen, mattias]
+    chatter: Obama_Obama01
+    briefing_safe: false
+  - kind: add_outfit
+    name: pmc_hum_sarah
+    slug: Palin
+    display: "[SHELL.Costumes.palin]"
+    wearer: [chris, jen, mattias]
+    chatter: Palin_Palin01
+    briefing_safe: false
+  - kind: add_outfit
+    name: pmc_hum_mattias_v5
+    slug: GrandpaMattias
+    display: "[SHELL.Costumes.oldmatt]"
+    wearer: mattias
+    briefing_safe: false
+  - kind: add_stringdb_keys
+    target: english
+    strings: src/strings/english_vz_outfits.txt
+  # The DLC's voice banks hold both chatter sets' lines (dlctest01_soundbootstrap.lua:135-136, :186-193).
+  - kind: load_sound
+    soundbank: vo_resident_DLCTest
+    wavebank: vo_stream_DLCTest
+    stream: vo_stream_DLCTest
+    in: [gameplay]
+  - kind: level_asset
+    level: vz
+    type: model
+    name: pmc_hum_obama
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: model
+    name: pmc_hum_sarah
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: model
+    name: pmc_hum_mattias_v5
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: chatter
+    name: Obama_Obama01
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: chatter
+    name: Palin_Palin01
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: soundbank
+    name: vo_resident_DLCTest.english
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: sounddb
+    name: vo_resident_DLCTest.english
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: wavebank
+    name: vo_stream_DLCTest.english
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: soundbank
+    name: vo_resident_DLCTest.spanish
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: sounddb
+    name: vo_resident_DLCTest.spanish
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: wavebank
+    name: vo_stream_DLCTest.spanish
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: soundbank
+    name: vo_resident_DLCTest.italian
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: sounddb
+    name: vo_resident_DLCTest.italian
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: wavebank
+    name: vo_stream_DLCTest.italian
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: soundbank
+    name: vo_resident_DLCTest.french
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: sounddb
+    name: vo_resident_DLCTest.french
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: wavebank
+    name: vo_stream_DLCTest.french
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: soundbank
+    name: vo_resident_DLCTest.german
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: sounddb
+    name: vo_resident_DLCTest.german
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: wavebank
+    name: vo_stream_DLCTest.german
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: soundbank
+    name: vo_resident_DLCTest.russian
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: sounddb
+    name: vo_resident_DLCTest.russian
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: wavebank
+    name: vo_stream_DLCTest.russian
+    from: biua_ps3
+  # The textures the three models name that vz.wad lacks (qm build's list), each checked against its hash.
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: teeth_old
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_sarah_lb
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_obama_lb_nm
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_mattias_v5_lb
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_sarah_ub_sm
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_sarah_hair
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_obama_head_nm
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_mattias_v5_ub_nm
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_sarah_glasses_sm
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_obama_head
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_sarah_hair_nm
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_sarah_lb_nm
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_obama_lb_sm
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_sarah_ub_nm
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_obama_ub
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_sarah_head_sm
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_sarah_glasses
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_mattias_v5_head
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_obama_lb
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_mattias_v5_head_nm
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_sarah_eyelashes
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_mattias_v5_head_sm
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_mattias_v5_ub_sm
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_mattias_v5_ub
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_sarah_hair_sm
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_sarah_head
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_obama_head_sm
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_obama_ub_nm
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_obama_ub_sm
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_sarah_ub
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_sarah_lb_sm
+    from: biua_ps3
+  - kind: level_asset
+    level: vz
+    type: texture
+    name: pmc_hum_sarah_head_nm
+    from: biua_ps3
+  # The DLC's own level: every asset and stream of the package's conversion.
+  - kind: add_level
+    name: dlc01
+    display: Blow It Up Again
+    from: biua_ps3
