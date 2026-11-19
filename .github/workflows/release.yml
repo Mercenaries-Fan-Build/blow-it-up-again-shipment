@@ -1,0 +1,131 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, X.Y.Z (no leading v)"
+        required: true
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+# Both paths build src/blow_it_up_again.asi from client/, lint the Shipment with the qm pinned in
+# .github/qm-version, and attach <shipment.name>-v<version>.zip, made and checked by
+# .github/scripts/package_shipment.sh. The DLC's converted files (src/level) are never in it.
+
+jobs:
+  stamp-and-release:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Install qm
+        uses: ./.github/actions/install-qm
+
+      - name: Normalise the version
+        id: v
+        run: |
+          set -euo pipefail
+          VERSION="${{ inputs.version }}"
+          VERSION="${VERSION#v}"
+          case "$VERSION" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::'$VERSION' is not an X.Y.Z version"; exit 1 ;;
+          esac
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "::error::tag v$VERSION already exists — pick a new version"; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # The stamp rewrites the first `version:` line, which is shipment.version; qm reading the stamped
+      # manifest back is what confirms it landed there.
+      - name: Stamp shipment.version in manifest.yaml
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.v.outputs.version }}"
+          sed -i "0,/^[[:space:]]*version:/s/^\([[:space:]]*\)version:.*/\1version: $VERSION/" manifest.yaml
+          got=$(./qm manifest-info manifest.yaml | jq -er .version)
+          [ "$got" = "$VERSION" ] || { echo "::error::stamp failed — qm reads shipment.version '$got'"; exit 1; }
+
+      - name: Build the client ASI
+        uses: ./.github/actions/build-asi
+
+      # Refuse to cut a release from a Shipment that does not lint. Gated on the exit code.
+      - name: Lint the Shipment before releasing it
+        run: ./qm lint .
+
+      - name: Package the Shipment and lint the zip
+        id: pkg
+        run: bash .github/scripts/package_shipment.sh ./qm "$RUNNER_TEMP"
+
+      - name: Commit the stamp, tag it, and cut the release with the asset attached
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.v.outputs.version }}"
+          ASSET="${{ steps.pkg.outputs.asset }}"
+          BRANCH="${{ github.event.repository.default_branch }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- manifest.yaml; then
+            echo "manifest already at $VERSION — tagging the current commit"
+          else
+            git add manifest.yaml
+            git commit -m "manifest.yaml: version $VERSION for release v$VERSION"
+            git push origin "HEAD:$BRANCH"
+          fi
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+          gh release create "v$VERSION" --title "v$VERSION" --generate-notes \
+            --target "$(git rev-parse HEAD)" "$ASSET"
+
+  guard-and-attach:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install qm
+        uses: ./.github/actions/install-qm
+
+      - name: manifest.yaml version must equal the tag
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#v}"
+          MAN=$(./qm manifest-info manifest.yaml | jq -er .version)
+          if [ "$TAG" != "$MAN" ]; then
+            echo "::error::tag v$TAG but manifest.yaml says $MAN. Use the dispatch path, or bump manifest.yaml to $TAG before tagging."
+            exit 1
+          fi
+
+      - name: Build the client ASI
+        uses: ./.github/actions/build-asi
+
+      - name: Lint the Shipment before releasing it
+        run: ./qm lint .
+
+      - name: Package the Shipment and lint the zip
+        id: pkg
+        run: bash .github/scripts/package_shipment.sh ./qm "$RUNNER_TEMP"
+
+      - name: Create the release if absent, or attach the asset to an existing one
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          ASSET="${{ steps.pkg.outputs.asset }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ASSET" --clobber
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes "$ASSET"
+          fi
