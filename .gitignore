@@ -1,0 +1,14 @@
+# The DLC's bytes are yours, converted from your own package. They never enter a repo or a release.
+src/level/
+_build/
+# Zips of this folder, which carry src/level.
+*.zip
+
+# Built from client/ by client/scripts/build_asi.sh (locally, and by CI before lint and release).
+src/blow_it_up_again.asi
+
+# qm output from `--out build`.
+build/
+
+.DS_Store
+Thumbs.db
