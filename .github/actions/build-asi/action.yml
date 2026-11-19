@@ -1,0 +1,54 @@
+name: Build the client ASI
+description: Builds src/blow_it_up_again.asi from client/ for i686-pc-windows-gnu with client/scripts/build_asi.sh, against the mercs2_formats and MinGW libraries of a pinned mercs2-wad-simulator checkout.
+
+runs:
+  using: composite
+  steps:
+    - name: Install the i686 MinGW linker
+      shell: bash
+      run: |
+        set -euo pipefail
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends gcc-mingw-w64-i686
+
+    # build_asi.sh builds against WAD_SIMULATOR_DIR's crates/mercs2_formats and links the MinGW libraries
+    # its crates/mercs2_mod_runtime/scripts/fetch_mingw_libs.sh fetches. The ref is the mercs2-wad-simulator
+    # tag those come from; the full tree is checked out because mercs2_formats inherits workspace fields
+    # and dependencies.
+    - name: Check out mercs2-wad-simulator
+      uses: actions/checkout@v4
+      with:
+        repository: Mercenaries-Fan-Build/mercs2-wad-simulator
+        ref: v1.19.2
+        path: .ci/mercs2-wad-simulator
+
+    # The channel and target come from client/rust-toolchain.toml; build.rs and build_asi.sh refuse
+    # libraries fetched for another rustc, so the version is pinned there and nowhere else.
+    - name: Install the pinned Rust toolchain
+      id: rust
+      shell: bash
+      working-directory: client
+      run: |
+        set -euo pipefail
+        rustup toolchain install
+        toolchain=$(rustup show active-toolchain)
+        toolchain=${toolchain%% *}
+        [ -n "$toolchain" ] || { echo "::error::rustup names no active toolchain in client/"; exit 1; }
+        echo "toolchain=$toolchain" >> "$GITHUB_OUTPUT"
+        rustc -V
+
+    # fetch_mingw_libs.sh runs rustc from the wad-simulator checkout, which does not carry
+    # client/rust-toolchain.toml; RUSTUP_TOOLCHAIN makes it fetch for the client's rustc.
+    - name: Fetch the MinGW libraries for that rustc
+      shell: bash
+      env:
+        RUSTUP_TOOLCHAIN: ${{ steps.rust.outputs.toolchain }}
+      run: bash .ci/mercs2-wad-simulator/crates/mercs2_mod_runtime/scripts/fetch_mingw_libs.sh
+
+    - name: Fetch the DWARF-2 libgcc for that rustc
+      shell: bash
+      run: bash client/scripts/fetch_dw2_libgcc.sh
+
+    - name: Build the ASI
+      shell: bash
+      run: WAD_SIMULATOR_DIR="$GITHUB_WORKSPACE/.ci/mercs2-wad-simulator" bash client/scripts/build_asi.sh
