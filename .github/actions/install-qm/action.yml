@@ -1,0 +1,45 @@
+name: Install qm
+description: Downloads qm-linux-x86_64 from the Workshop Tools release named in .github/qm-version, verifies it against GitHub's sha256 for that asset, and leaves it at ./qm.
+
+# .github/qm-version is the one pin, used by lint.yml and by both release.yml jobs. It holds a Workshop
+# Tools release tag of mercs2-wad-simulator, not qm's own version: v1.19.2 carries qm 6.0.0, and the step
+# below prints the version the tag carries. Raise it to the tag of the release that carries the qm this
+# manifest needs. There is no digest to bump alongside it: the expected sha256 is read from GitHub's own
+# record of the release asset.
+
+runs:
+  using: composite
+  steps:
+    - name: Install qm (release from .github/qm-version)
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        QM_RELEASE="$(tr -d '[:space:]' < .github/qm-version)"
+        case "$QM_RELEASE" in
+          v[0-9]*.[0-9]*.[0-9]*) ;;
+          *) echo "::error::.github/qm-version holds '$QM_RELEASE', not a vX.Y.Z Workshop Tools release tag"; exit 1 ;;
+        esac
+        repo=Mercenaries-Fan-Build/mercs2-wad-simulator
+        asset=qm-linux-x86_64
+
+        # GitHub records a sha256 for every release asset. Read it BEFORE downloading, so the check is
+        # against what the release claims to hold rather than against the bytes that happened to arrive.
+        want=$(gh api "repos/$repo/releases/tags/$QM_RELEASE" \
+          --jq ".assets[] | select(.name == \"$asset\") | .digest")
+        if [ -z "$want" ]; then
+          echo "::error::$asset is not in $QM_RELEASE — check .github/qm-version"
+          exit 1
+        fi
+        want=${want#sha256:}
+
+        gh release download "$QM_RELEASE" --repo "$repo" --pattern "$asset" --output qm
+        got=$(sha256sum qm | cut -d' ' -f1)
+        if [ "$want" != "$got" ]; then
+          echo "::error::$asset failed verification — expected $want, got $got"
+          exit 1
+        fi
+        chmod +x qm
+        echo "$QM_RELEASE $asset verified: $got"
+        ./qm --version
