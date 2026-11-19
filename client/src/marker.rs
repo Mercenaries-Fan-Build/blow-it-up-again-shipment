@@ -42,6 +42,21 @@ pub const FADE_LENGTH: f32 = 100.0;
 /// The model's Y scale for a DLC disc, where a disc's is 1/radius.
 pub const DLC_Y_SCALE: f32 = 0.25;
 
+/// What turns kind 3 into kind 1 and back: the kinds differ in bit 5 only.
+pub const DLC_TO_DISC: u8 = (KIND_DLC_DISC ^ KIND_DISC) << KIND_SHIFT;
+
+/// The flag byte remove sees: a DLC disc shown as a disc, so remove gives it the visual cleanup PS3 v1.03's
+/// remove gives kind 3; with whether it was changed.
+pub fn for_remove(flag: u8) -> (u8, bool) {
+    if kind(flag) == KIND_DLC_DISC { (flag ^ DLC_TO_DISC, true) } else { (flag, false) }
+}
+
+/// The flag byte of a record remove left in place, which [`for_remove`] changed: a DLC disc again, unless
+/// something else made it other than a disc meanwhile.
+pub fn after_remove(flag: u8) -> u8 {
+    if kind(flag) == KIND_DISC { flag ^ DLC_TO_DISC } else { flag }
+}
+
 /// The flag byte the DLC creator writes, from the one the disc creator wrote.
 pub fn dlc_flag(disc: u8) -> u8 {
     (disc & KEEP) | DLC_BITS
@@ -91,6 +106,24 @@ mod tests {
             assert!(!drawn_as_disc(stack & 0xcf), "kind 0, the icon marker");
         }
         assert_eq!(kind(tripwire(0)), KIND_TRIPWIRE);
+    }
+
+    #[test]
+    fn remove_sees_a_dlc_disc_as_a_disc_and_a_surviving_one_is_a_dlc_disc_again() {
+        for stack in [0x00, 0x80] {
+            let dlc = dlc_flag(disc(stack));
+            let (shown, changed) = for_remove(dlc);
+            assert!(changed);
+            assert_eq!(kind(shown), KIND_DISC);
+            assert_eq!(shown & !KIND_MASK, dlc & !KIND_MASK, "only the kind changes");
+            assert_eq!(after_remove(shown), dlc, "kind 3 again, every other bit as it was");
+            for other in [disc(stack), tripwire(stack), stack & 0xcf] {
+                assert_eq!(for_remove(other), (other, false), "{other:#x} is left alone");
+            }
+            // A record that is no longer a disc after the call is left as it is.
+            assert_eq!(after_remove(tripwire(stack)), tripwire(stack));
+        }
+        assert_eq!(DLC_TO_DISC, 0x20);
     }
 
     #[test]
