@@ -568,12 +568,17 @@ unsafe extern "C" fn detour_coop_z() {
     );
 }
 
-/// Before `cmp byte [flag],0`, after the `SetGPSDest` event took the raw clicked position: the stored position
-/// becomes `Q / s − x`, `Q / s − z` (`EDI` = the PDA). Then the `cmp` itself, whose flags the `je` after it
-/// reads. `EAX` is kept; `XMM0` is reloaded before its next read on both paths.
+/// Before `cmp byte [flag],0`, after the `SetGPSDest` event took the raw clicked position: for the PDA's own
+/// click (the handler's parameter, `[esp+0x54]`, is 0) the stored position becomes `Q / s − x`, `Q / s − z`
+/// (`EDI` = the PDA). A co-op partner's position (parameter 1, the receive of message `0x14`) was converted
+/// by the sender and is kept as it arrived, where PS3 v1.03 converts it a second time. Then the `cmp`
+/// itself, whose flags the `je` after it reads. `EAX` is kept; `XMM0` is reloaded before its next read on
+/// both paths.
 #[unsafe(naked)]
 unsafe extern "C" fn detour_pda() {
     core::arch::naked_asm!(
+        "cmp byte ptr [esp + {param}], 0",
+        "jne 2f",
         "movss xmm0, dword ptr [edi + 0x39c]",
         "divss xmm0, dword ptr [{o} + 8]",
         "subss xmm0, dword ptr [{o}]",
@@ -582,11 +587,13 @@ unsafe extern "C" fn detour_pda() {
         "divss xmm0, dword ptr [{o} + 8]",
         "subss xmm0, dword ptr [{o} + 4]",
         "movss dword ptr [edi + 0x3a0], xmm0",
+        "2:",
         "push eax",
         "mov eax, dword ptr [{flag}]",
         "cmp byte ptr [eax], 0",
         "pop eax",
         "jmp dword ptr [{r}]",
+        param = const sites::PDA_PARAM_ESP,
         o = sym OFFSETS,
         flag = sym PDA_FLAG,
         r = sym R_PDA,
