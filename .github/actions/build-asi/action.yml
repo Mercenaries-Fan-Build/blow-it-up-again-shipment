@@ -19,7 +19,7 @@ runs:
       uses: actions/checkout@v4
       with:
         repository: Mercenaries-Fan-Build/mercs2-wad-simulator
-        ref: v1.19.2
+        ref: v1.20.0
         path: .ci/mercs2-wad-simulator
 
     # The channel and target come from client/rust-toolchain.toml; build.rs and build_asi.sh refuse
