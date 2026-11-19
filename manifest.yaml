@@ -32,13 +32,22 @@ contributions:
     size: 407578320
   # The ASI (built from client/ by client/scripts/build_asi.sh): the Lua engine functions the DLC's scripts
   # call that PC v1.1 never registered, added to the engine's own tables through m2-sdk.dll's Lua host. It
-  # detours no game code itself.
+  # detours, through m2-sdk.dll's MinHook, the game code those functions need: the map's +35/+40 (minimap,
+  # GPS line, radar, co-op midpoint, PDA click) and the GUI release that resets them, and the marker creator
+  # and update for the DLC disc (client/src/sites.rs).
   - kind: native_hook
     target: retail
     plugin: src/blow_it_up_again.asi
-    # The bindings it adds (client/src/registry.rs). Human.SetChatterSet is how the outfits below apply
-    # their chatter sets in the main campaign too (qm's M0264).
-    touches: ["Net.DLCGetMountPoint", "Human.SetChatterSet"]
+    # The bindings it adds and the alias it sets (client/src/registry.rs). Human.SetChatterSet is how the
+    # outfits below apply their chatter sets in the main campaign too (qm's M0264).
+    touches:
+      - Net.DLCGetMountPoint
+      - Human.SetChatterSet
+      - Gui.SetMapCorrectionOffset
+      - Gui.GetMapCorrectionOffset
+      - Gui._MarkerAddDiscDLC
+      - Marker.AddDiscDLC
+      - Object.GetInfiniteAmmo
   # Blow It Up Again in the shell's Extras > DLC page: the front end's library lists the entry and starts the
   # dlc01 level when it is chosen (src/lua/biua_extras_dlc.lua).
   - kind: add_script
