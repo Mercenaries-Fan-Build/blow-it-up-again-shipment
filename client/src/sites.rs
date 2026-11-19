@@ -60,6 +60,14 @@
 //! | [`MarkerSites::switch`] | `0x0061AA52` in the update `FUN_0061A990` | `mov al,[ebp]; shr al,4; and al,3; cmp al,1; jne other` |
 //! | [`MarkerSites::scale`] | `0x0061AAE4` | `movss xmm0,[1.0]; divss xmm0,[ebp+4]` |
 //! | [`MarkerSites::disc_checks`] | `0x0061AC87`, `0x0061AD11` | `and bl,0x30; cmp bl,0x10; je` (and `dl`) |
+//! | [`MarkerSites::remove`] | `0x0061A7D0` | remove's `.text` entry, `jmp dword [slot]`: the whole call is wrapped |
+//!
+//! Remove (`EAX` = the marker id; one stack argument, popped by the caller; the body reached through the
+//! slot is SecuROM-relocated: v1.0 `0x028E6000`, v1.1 `0x024E22C0`) looks the marker up in
+//! [`MarkerSites::container`] and gives kinds 1 and 2 its visual cleanup (model instance released, the
+//! entity's `+0x1E4` link cleared) before it deletes the record; kinds 0 and 3 skip it. PS3 v1.03's remove
+//! (`0x005D44D8`) cleans up kinds 3, 1 and 2 alike, so the wrapper shows remove a DLC disc as kind 1, and
+//! puts kind 3 back if the record is still there afterwards.
 
 use mercs2_formats::exe_image::Image;
 use mercs2_formats::lua_sites::Pattern;
@@ -109,10 +117,13 @@ pub enum Site {
     MarkerScale,
     MarkerCheck1,
     MarkerCheck2,
+    MarkerPool,
+    MarkerRemoveCall,
+    MarkerUpdateRemove,
 }
 
 impl Site {
-    pub const ALL: [Site; 27] = [
+    pub const ALL: [Site; 30] = [
         Site::Minimap,
         Site::GpsLoadFirst,
         Site::GpsLoadAgain,
@@ -140,6 +151,9 @@ impl Site {
         Site::MarkerScale,
         Site::MarkerCheck1,
         Site::MarkerCheck2,
+        Site::MarkerPool,
+        Site::MarkerRemoveCall,
+        Site::MarkerUpdateRemove,
     ];
 
     pub fn name(self) -> &'static str {
@@ -171,6 +185,9 @@ impl Site {
             Site::MarkerScale => "MarkerScale",
             Site::MarkerCheck1 => "MarkerCheck1",
             Site::MarkerCheck2 => "MarkerCheck2",
+            Site::MarkerPool => "MarkerPool",
+            Site::MarkerRemoveCall => "MarkerRemoveCall",
+            Site::MarkerUpdateRemove => "MarkerUpdateRemove",
         }
     }
 
@@ -289,6 +306,14 @@ impl Site {
             Site::MarkerCheck1 => ("8a 5d 00 50 8d 44 24 3c e8 ?? ?? ?? ?? 80 e3 30 80 fb 10 74 ??", 13, 8),
             // mov dl,[ebp]; >and dl,0x30; cmp dl,0x10; je
             Site::MarkerCheck2 => ("8a 55 00 80 e2 30 80 fa 10 74 ??", 3, 8),
+            // In the disc creator: or al,0x10; push ebx; mov edi,<pool> (the marker container + 0x18, the
+            // add's base); movss [esp+0x60],xmm1
+            Site::MarkerPool => ("0c 10 53 bf ?? ?? ?? ?? f3 0f 11 4c 24 60", 0, 0),
+            // `_MarkerRemove`: mov eax,[esp+4]; push 1; call <remove>; add esp,4; xor eax,eax; pop ebx; pop ecx; ret
+            Site::MarkerRemoveCall => ("8b 44 24 04 6a 01 e8 ?? ?? ?? ?? 83 c4 04 33 c0 5b 59 c3", 0, 0),
+            // The update: test byte [ebp],2; je; mov eax,[esp+0x64]; push 1; call <remove>; add esp,4;
+            // cmp [ebp+0x24],0
+            Site::MarkerUpdateRemove => ("f6 45 00 02 74 0e 8b 44 24 64 6a 01 e8 ?? ?? ?? ?? 83 c4 04 83 7d 24 00", 0, 0),
         }
     }
 }
@@ -341,6 +366,15 @@ const MARKER_SWITCH_OTHER_AT: usize = 12;
 const MARKER_SCALE_ONE_AT: usize = 10;
 const MARKER_CHECK1_REL8_AT: usize = 20;
 const MARKER_CHECK2_REL8_AT: usize = 10;
+const MARKER_POOL_AT: usize = 4;
+const MARKER_REMOVE_CALL_AT: usize = 6;
+const MARKER_UPDATE_REMOVE_CALL_AT: usize = 12;
+/// The marker container's name (its vtable `+0x34` accessor).
+pub const MARKER_COMPONENT: &str = "RuntimeObjectiveMarker";
+/// The pool the creators insert into is the container's add base, `container + 0x18`.
+const CONTAINER_ADD_BASE: u32 = 0x18;
+/// Remove's `.text` entry is `jmp dword [slot]` (`FF 25 <slot>`), into SecuROM-relocated code.
+const REMOVE_THUNK: [u8; 2] = [0xff, 0x25];
 
 /// A hook: the first instruction it replaces, and where execution resumes after the replaced ones.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -398,6 +432,12 @@ pub struct MarkerSites {
     /// The two "kind is disc" tests: each resumes after its `je` (`resume`) or where the `je` went.
     pub disc_checks: [Hook; 2],
     pub disc_check_taken: [u32; 2],
+    /// The `RuntimeObjectiveMarker` container (the markers' records).
+    pub container: u32,
+    /// Remove's `.text` entry (`EAX` = the marker id, one stack argument, the caller pops), a
+    /// `jmp dword [remove_slot]`.
+    pub remove: u32,
+    pub remove_slot: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -409,7 +449,7 @@ pub struct Sites {
 }
 
 /// How many sites are hooked.
-pub const HOOKS: usize = 22;
+pub const HOOKS: usize = 23;
 
 impl Sites {
     /// Every hooked site's first instruction, with the name `manifest.yaml`'s `touches` declares it by
@@ -439,6 +479,7 @@ impl Sites {
             ("marker_y_scale", k.scale.va),
             ("marker_disc_test_1", k.disc_checks[0].va),
             ("marker_disc_test_2", k.disc_checks[1].va),
+            ("marker_remove", k.remove),
         ]
     }
 }
@@ -461,6 +502,10 @@ impl Text<'_> {
             [one] => Ok(self.va + one as u32),
             ref hits => Err(format!("the {} signature matched {} time(s) in .text, not once", site.name(), hits.len())),
         }
+    }
+
+    fn contains(&self, va: u32) -> bool {
+        va >= self.va && ((va - self.va) as usize) + 8 <= self.bytes.len()
     }
 
     fn bytes_from(&self, va: u32) -> &[u8] {
@@ -566,12 +611,18 @@ fn resolve_ammo(img: &Image, text: &Text) -> Result<AmmoSites, String> {
             return Err(format!("the {AMMO_COMPONENT} presence test reads {have:#x}, not container {container:#x} + {field:#x}"));
         }
     }
-    let in_text = |va: u32| img.section(".text").is_some_and(|t| t.contains(va));
-    if !in_text(index) {
+    if !img.section(".text").is_some_and(|t| t.contains(index)) {
         return Err(format!("the {AMMO_COMPONENT} index function {index:#x} is not in .text"));
     }
-    // The container's vtable is stored by its static constructor (`mov dword [container], <vtable>`, v1.1
-    // `0x00A7C82E`), so before that runs `.data` holds no vtable; the name is read through every such store.
+    container_named(img, text, container, AMMO_COMPONENT)?;
+    Ok(AmmoSites { container, index })
+}
+
+/// `container` names itself `name`: its vtable is stored by its static constructor (`mov dword [container],
+/// <vtable>`, e.g. v1.1 `0x00A7C82E` for `CheatInfiniteAmmo`), so before that runs `.data` holds no vtable;
+/// the name is read through every such store, and exactly one must give `name`.
+fn container_named(img: &Image, text: &Text, container: u32, name: &str) -> Result<(), String> {
+    let in_text = |va: u32| img.section(".text").is_some_and(|t| t.contains(va));
     let name_of = |vtable: u32| {
         img.u32_at(vtable + CONTAINER_NAME_SLOT)
             .filter(|&accessor| in_text(accessor))
@@ -583,12 +634,12 @@ fn resolve_ammo(img: &Image, text: &Text) -> Result<AmmoSites, String> {
     store.extend_from_slice(&container.to_le_bytes());
     let vtables: Vec<u32> = text.bytes.windows(10).filter(|w| w[..6] == store[..]).map(|w| u32_at(w, 6)).collect();
     let names: Vec<Option<String>> = vtables.iter().map(|&v| name_of(v).map(|n| String::from_utf8_lossy(n).into_owned())).collect();
-    if names.iter().filter(|n| n.as_deref() == Some(AMMO_COMPONENT)).count() != 1 {
+    if names.iter().filter(|n| n.as_deref() == Some(name)).count() != 1 {
         return Err(format!(
-            "the container {container:#x} the presence test reads is not named {AMMO_COMPONENT:?} by exactly one vtable stored into it through vtable+{CONTAINER_NAME_SLOT:#x} (stores {vtables:#x?} name {names:?})"
+            "the container {container:#x} is not named {name:?} by exactly one vtable stored into it through vtable+{CONTAINER_NAME_SLOT:#x} (stores {vtables:#x?} name {names:?})"
         ));
     }
-    Ok(AmmoSites { container, index })
+    Ok(())
 }
 
 /// The function of the one `luaL_Reg` row `{name, func}` whose name is the C string `name`: every 4-byte
@@ -664,7 +715,43 @@ fn resolve_marker(img: &Image, text: &Text) -> Result<MarkerSites, String> {
     if !(switch.resume < switch_other && switch_other < order[0] + MARKER_UPDATE_SPAN) {
         return Err(format!("the marker update's other-kinds path {switch_other:#x} is not after its disc path {:#x}", switch.resume));
     }
-    Ok(MarkerSites { add_disc, creator, flag, hibernation, switch, switch_other, scale, disc_checks, disc_check_taken })
+
+    let pool_site = text.find(Site::MarkerPool)?;
+    if !(creator < pool_site && pool_site < creator + CREATOR_LEN) {
+        return Err(format!("the creator's pool operand {pool_site:#x} is not inside the creator {creator:#x}"));
+    }
+    let container = u32_at(text.bytes_from(pool_site), MARKER_POOL_AT).wrapping_sub(CONTAINER_ADD_BASE);
+    container_named(img, text, container, MARKER_COMPONENT)?;
+    let call_target = |site: Site, at: usize| -> Result<u32, String> {
+        let m = text.find(site)?;
+        Ok(m.wrapping_add(at as u32 + 5).wrapping_add(u32_at(text.bytes_from(m), at + 1)))
+    };
+    let remove = call_target(Site::MarkerRemoveCall, MARKER_REMOVE_CALL_AT)?;
+    let from_update = call_target(Site::MarkerUpdateRemove, MARKER_UPDATE_REMOVE_CALL_AT)?;
+    if remove != from_update {
+        return Err(format!("_MarkerRemove calls {remove:#x} but the marker update calls {from_update:#x} to remove a marker"));
+    }
+    if !text.contains(remove) || text.bytes_from(remove)[..2] != REMOVE_THUNK {
+        return Err(format!("the marker remove {remove:#x} is not a `jmp dword [slot]` in .text"));
+    }
+    let remove_slot = u32_at(text.bytes_from(remove), 2);
+    if img.u32_at(remove_slot).is_none() {
+        return Err(format!("the marker remove's slot {remove_slot:#x} is not in the image"));
+    }
+    Ok(MarkerSites {
+        add_disc,
+        creator,
+        flag,
+        hibernation,
+        switch,
+        switch_other,
+        scale,
+        disc_checks,
+        disc_check_taken,
+        container,
+        remove,
+        remove_slot,
+    })
 }
 
 /// Every site in `img`.
@@ -757,6 +844,13 @@ mod tests {
         assert_eq!(toks(Site::MarkerCheck1)[MARKER_CHECK1_REL8_AT], "??");
         assert_eq!(toks(Site::MarkerCheck2)[at(Site::MarkerCheck2)..][..7], ["80", "e2", "30", "80", "fa", "10", "74"]);
         assert_eq!(toks(Site::MarkerCheck2)[MARKER_CHECK2_REL8_AT], "??");
+        assert_eq!(toks(Site::MarkerPool)[MARKER_POOL_AT - 1], "bf");
+        assert_eq!(toks(Site::MarkerPool)[MARKER_POOL_AT..][..4], ["??"; 4]);
+        for (s, at) in [(Site::MarkerRemoveCall, MARKER_REMOVE_CALL_AT), (Site::MarkerUpdateRemove, MARKER_UPDATE_REMOVE_CALL_AT)] {
+            assert_eq!(toks(s)[at], "e8", "{}", s.name());
+            assert_eq!(toks(s)[at + 1..][..4], ["??"; 4], "{}", s.name());
+            assert_eq!(toks(s)[at - 2..at], ["6a", "01"], "{}: the flag pushed", s.name());
+        }
         assert_eq!((PC_X.to_bits(), PC_Z.to_bits()), (0x420c_0000, 0x4220_0000));
     }
 }
