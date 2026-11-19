@@ -20,6 +20,9 @@ mercs2_formats = "6.0.3"
 # tests/lua_surface.rs reads the native_hook touches of the Shipments manifest.yaml requires. serde_norway is
 # the maintained fork of serde-yaml, the YAML crate qm (mercs2_quartermaster) reads manifests with.
 serde_norway = "0.9"
+# tests/pc_sites.rs finds the PC reference builds by their catalogued sha256, as the research checkout's own
+# site tests do (mercs2_exemap::canonical).
+sha2 = "0.10"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [
