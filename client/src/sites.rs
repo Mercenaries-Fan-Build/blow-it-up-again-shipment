@@ -403,6 +403,41 @@ pub struct Sites {
     pub marker: MarkerSites,
 }
 
+/// How many sites are hooked.
+pub const HOOKS: usize = 22;
+
+impl Sites {
+    /// Every hooked site's first instruction, with the name `manifest.yaml`'s `touches` declares it by
+    /// (`biua:<name>`).
+    pub fn hooks(&self) -> [(&'static str, u32); HOOKS] {
+        let (m, r, k) = (&self.map, &self.reset, &self.marker);
+        [
+            ("minimap", m.minimap.va),
+            ("gps_offsets", m.gps_load[0].va),
+            ("gps_offsets_again", m.gps_load[1].va),
+            ("gps_scale_1", m.gps_scale[0].va),
+            ("gps_scale_2", m.gps_scale[1].va),
+            ("gps_scale_3", m.gps_scale[2].va),
+            ("gps_scale_4", m.gps_scale[3].va),
+            ("gps_scale_5", m.gps_scale[4].va),
+            ("gps_scale_6", m.gps_scale[5].va),
+            ("radar_blip", m.radar.va),
+            ("coop_midpoint_x", m.coop[0].va),
+            ("coop_midpoint_z", m.coop[1].va),
+            ("pda_click", m.pda.va),
+            ("system_deactivate", r.update.va),
+            ("systems_release", r.inline[0].va),
+            ("systems_acquire", r.inline[1].va),
+            ("marker_flag", k.flag.va),
+            ("marker_hibernation", k.hibernation.va),
+            ("marker_kind_switch", k.switch.va),
+            ("marker_y_scale", k.scale.va),
+            ("marker_disc_test_1", k.disc_checks[0].va),
+            ("marker_disc_test_2", k.disc_checks[1].va),
+        ]
+    }
+}
+
 fn u32_at(b: &[u8], at: usize) -> u32 {
     u32::from_le_bytes([b[at], b[at + 1], b[at + 2], b[at + 3]])
 }
