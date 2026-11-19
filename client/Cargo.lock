@@ -84,6 +84,7 @@ version = "0.1.0"
 dependencies = [
  "mercs2_formats",
  "serde_norway",
+ "sha2",
  "windows-sys 0.61.2",
 ]
 
