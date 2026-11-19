@@ -116,6 +116,9 @@ contributions:
       - "biua:marker_disc_test_2"
       - "0x0061AD11"
       - "0x0061AE11"
+      - "biua:marker_remove"
+      - "0x0061A7D0"
+      - "0x0061A8D0"
   # Blow It Up Again in the shell's Extras > DLC page: the front end's library lists the entry and starts the
   # dlc01 level when it is chosen (src/lua/biua_extras_dlc.lua).
   - kind: add_script
