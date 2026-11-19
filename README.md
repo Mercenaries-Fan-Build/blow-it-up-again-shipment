@@ -50,7 +50,8 @@ title update v1.03 does:
   35 m west and 40 m south of where retail PC set it: retail PC kept the map position the movie sent
   (`FUN_006A0DD0`), but the minimap draws a world point 35/40 further along on the map, and the game's own Lua
   reads the same click 35/40 back (`HandleBeaconCheck` in `mrxguipda.lua`). In co-op, a partner's
-  destination is converted again on arrival, as on PS3 v1.03.
+  destination arrives already converted and is kept as it arrives. PS3 v1.03 converts it a second time on
+  arrival (its receive, `0x3464C`, calls the click handler `0x1CF868` again); the ASI does not.
 - The DLC's target discs are drawn as PS3 draws them: they pulse, are removed when their pulse halts, fade
   from 400 m over 100 m (a disc's are 50 m over 10 m), and their model's height scale is 0.25 rather than one
   over the radius.
