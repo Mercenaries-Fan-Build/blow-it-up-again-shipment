@@ -1,0 +1,13 @@
+[vehicle.dlc_m1a1] = Diplomat Heavy Tank (M1A1)
+[support.vehicle.dlc_m1a1.desc] = The Diplomat's M1A1 variant, from Blow It Up Again.
+[vehicle.dlc_m1a3] = Diplomat Heavy Tank (M1A3)
+[support.vehicle.dlc_m1a3.desc] = The Diplomat's M1A3 variant, with a mine plow, TOW missile pods and a railgun.
+[vehicle.dlc_hammerhead] = Hammerhead
+[support.vehicle.dlc_hammerhead.desc] = An armored monster truck, from Blow It Up Again.
+[vehicle.dlc_recoilless_panhard] = Recoilless Panhard
+[support.vehicle.dlc_recoilless_panhard.desc] = A Panhard with a jump boost, from Blow It Up Again.
+[vehicle.dlc_hadron] = The Hadron
+[support.vehicle.dlc_hadron.desc] = A sports car with a jump boost, from Blow It Up Again.
+0x1A8A7545 = Hammerhead
+0xDDC1F198 = Recoilless Panhard
+0xF8FBD6A4 = The Hadron
