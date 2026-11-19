@@ -1,0 +1,32 @@
+name: Lint
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# The qm this Shipment is checked against is pinned once, in .github/qm-version (a Workshop Tools release
+# tag), read by .github/actions/install-qm.
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The manifest's native_hook points at src/blow_it_up_again.asi, which is built from client/ rather
+      # than committed; lint checks that the file it names exists.
+      - name: Build the client ASI
+        uses: ./.github/actions/build-asi
+
+      - name: Install qm
+        uses: ./.github/actions/install-qm
+
+      # Hermetic: no game install, no retail WADs, no network beyond fetching qm. Gated on the EXIT CODE,
+      # not on what gets printed.
+      - name: Lint this Shipment
+        run: ./qm lint .
+
+      - name: What was checked
+        if: always()
+        run: ./qm rules
