@@ -1,0 +1,3 @@
+[SHELL.Costumes.obama] = Obaminator
+[SHELL.Costumes.palin] = Sarahcuda
+[SHELL.Costumes.oldmatt] = Gramps
