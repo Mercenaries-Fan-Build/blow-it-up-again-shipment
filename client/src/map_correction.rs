@@ -19,6 +19,12 @@
 //! of where retail PC put it. That is where the minimap shows the clicked point (world → map adds 35/40 in
 //! `FUN_006201A0`, `FUN_00620AA0` and `FUN_00621620`), and where the base game's own Lua already reads the
 //! same click (`HandleBeaconCheck`, `mrxguipda.lua`: `Q − 35`, `Q − 40`).
+//!
+//! The click handler has a second caller: the co-op receive of message `0x14` (PC v1.1 `0x006FE2B6`, PS3
+//! v1.03 `0x0003464C`), which formats the partner's stored position as `"%d,%d"` and calls the handler with
+//! its parameter 1. PS3 v1.03 corrects that value again, so a partner's destination is corrected twice. The
+//! port corrects only the PDA's own click (parameter 0) and stores a partner's as it arrives, already
+//! corrected by the sender ([`pda_click_store`]).
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
@@ -90,6 +96,13 @@ pub fn midpoint(p0: f32, p1: f32, half: f32, offset: f32, scale: f32) -> f32 {
 /// position the movie sent, as the f32 the click handler converts it to.
 pub fn from_map(q: f32, offset: f32, scale: f32) -> f32 {
     q / scale - offset
+}
+
+/// What the PDA click handler stores for `q` with the hook: the PDA's own click (`from_partner` false, the
+/// handler's parameter 0) is converted by [`from_map`]; a co-op partner's (parameter 1, the receive of
+/// message `0x14`) is kept, as the sender already converted it.
+pub fn pda_click_store(q: f32, from_partner: bool, offset: f32, scale: f32) -> f32 {
+    if from_partner { q } else { from_map(q, offset, scale) }
 }
 
 fn is_space(c: u8) -> bool {
@@ -339,5 +352,20 @@ mod tests {
         // The DLC's values invert the minimap's world → map.
         let w = 812.5f32;
         assert!((from_map(to_map(w, 0.0, DLC_SCALE), 0.0, DLC_SCALE) - w).abs() < 1e-3);
+    }
+
+    #[test]
+    fn only_the_pdas_own_click_is_converted_and_a_partners_is_stored_as_it_arrives() {
+        for (offset, scale) in [(DEFAULT_X, DEFAULT_SCALE), (DEFAULT_Z, DEFAULT_SCALE), (0.0, DLC_SCALE)] {
+            for q in [0.0f32, 4.0, 1024.0, -2048.0] {
+                let own = pda_click_store(q, false, offset, scale);
+                assert_eq!(own.to_bits(), from_map(q, offset, scale).to_bits(), "own click {q}");
+                // The sender stored `own`; the receive formats it as "%d,%d" and the receiver keeps it.
+                let sent = own.trunc();
+                assert_eq!(pda_click_store(sent, true, offset, scale).to_bits(), sent.to_bits(), "partner's {sent}");
+            }
+        }
+        // PS3 v1.03 would store a partner's `trunc(Q − 35) − 35` at the defaults; the port stores `Q − 35`.
+        assert_eq!(pda_click_store(pda_click_store(100.0, false, DEFAULT_X, 1.0).trunc(), true, DEFAULT_X, 1.0), 65.0);
     }
 }
