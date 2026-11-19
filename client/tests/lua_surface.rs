@@ -9,7 +9,8 @@
 //!   left out (its header names the exe's sha256). The binding tables alone are not the surface: the
 //!   engine also builds tables in Lua (`Marker` over `Gui._Marker*`) and registers `Event`'s constants
 //!   natively;
-//! * what this ASI adds: [`blow_it_up_again::registry::ADDED`];
+//! * what this ASI adds: [`blow_it_up_again::registry::ADDED`] and the alias fields of
+//!   [`blow_it_up_again::registry::ALIASES`];
 //! * what the Shipments `manifest.yaml` requires add: the `Table.Field` entries of their native_hook `touches`,
 //!   from their `manifest.yaml` under the research checkout's `shipments/` (each required name must be the
 //!   `shipment.name` of exactly one of them; multiplayer-restored provides the DLC's leaderboard, user-name and
@@ -17,9 +18,19 @@
 //! * what the scripts reference: every `Table.Field` in the decompiled DLC Lua (`docs/mercs2-dlc-luacd/src` in
 //!   the research checkout this Shipment sits in) whose table is a global table of that surface.
 //!
+//! A name the shipped DLC script itself gets wrong, which raises on every platform, is listed in
+//! [`KNOWN_DLC_FAULTS`] with the one place the script names it; the test checks it is named there and
+//! nowhere else, and that no platform provides it.
+//!
 //! A missing input fails the test.
 
 use std::collections::{BTreeMap, BTreeSet};
+
+/// Faults in the shipped DLC scripts, as `(table, field, file under the research checkout, line)`.
+/// `Object.Delete` is registered by none of the 13 executable images (PC, PS3 and Xbox 360,
+/// `output/_exemap_exports/*.luareg.tsv`; parent repo `docs/reverse_engineer/dlc_engine_bindings.md`, "Not a
+/// binding"), so the call raises wherever the script runs.
+const KNOWN_DLC_FAULTS: &[(&str, &str, &str, usize)] = &[("Object", "Delete", "docs/mercs2-dlc-luacd/src/dlc01/dlccon004_cash.lua", 98)];
 use std::path::{Path, PathBuf};
 
 fn research_root() -> PathBuf {
@@ -91,11 +102,11 @@ fn shipment_manifests(root: &Path) -> BTreeMap<String, Vec<PathBuf>> {
     out
 }
 
-/// This Shipment's own native_hook touches are exactly what the ASI registers.
+/// This Shipment's own native_hook touches are exactly what the ASI registers and the aliases it sets.
 #[test]
 fn this_shipments_hook_touches_are_what_the_asi_adds() {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../manifest.yaml");
-    let added: BTreeSet<(String, String)> = blow_it_up_again::registry::ADDED.iter().map(|(t, f)| (t.to_string(), f.to_string())).collect();
+    let added: BTreeSet<(String, String)> = blow_it_up_again::registry::provided().into_iter().collect();
     assert_eq!(hook_lua_touches(&path, &yaml(&path)), added);
 }
 
@@ -145,15 +156,13 @@ fn lua_files(dir: &Path, out: &mut Vec<PathBuf>) {
 #[test]
 fn the_dlc_names_no_engine_function_pc_and_this_asi_lack() {
     let pc = surface(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/pc-v11-lua-surface.tsv"));
-    for (table, field) in blow_it_up_again::registry::ADDED {
-        assert!(
-            !pc.contains(&(table.to_string(), field.to_string())),
-            "{table}.{field} is in PC's own surface, so this ASI must not add it"
-        );
+    let asi = blow_it_up_again::registry::provided();
+    for (table, field) in &asi {
+        assert!(!pc.contains(&(table.clone(), field.clone())), "{table}.{field} is in PC's own surface, so this ASI must not add it");
     }
     let tables: BTreeSet<String> = pc.iter().map(|(t, _)| t.clone()).filter(|t| !t.contains('.')).collect();
     let mut provided = pc;
-    provided.extend(blow_it_up_again::registry::ADDED.iter().map(|(t, f)| (t.to_string(), f.to_string())));
+    provided.extend(asi);
 
     let root = research_root();
     let own = Path::new(env!("CARGO_MANIFEST_DIR")).join("../manifest.yaml");
@@ -184,6 +193,12 @@ fn the_dlc_names_no_engine_function_pc_and_this_asi_lack() {
                 missing.entry((a, b)).or_default().push(format!("{rel}:{line}"));
             }
         }
+    }
+    for (table, field, file, line) in KNOWN_DLC_FAULTS {
+        let key = (table.to_string(), field.to_string());
+        assert!(!provided.contains(&key), "{table}.{field} is listed as a DLC fault but is provided");
+        let sites = missing.remove(&key).unwrap_or_default();
+        assert_eq!(sites, [format!("{file}:{line}")], "the DLC fault {table}.{field} is named at exactly its listed place");
     }
     let report: Vec<String> = missing.iter().map(|((a, b), sites)| format!("{a}.{b}: {}", sites.join(", "))).collect();
     assert!(missing.is_empty(), "the DLC names {} engine field(s) neither PC v1.1, this ASI, nor a required Shipment provides:\n{}", missing.len(), report.join("\n"));
