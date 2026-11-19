@@ -2,7 +2,7 @@ name: Install qm
 description: Downloads qm-linux-x86_64 from the Workshop Tools release named in .github/qm-version, verifies it against GitHub's sha256 for that asset, and leaves it at ./qm.
 
 # .github/qm-version is the one pin, used by lint.yml and by both release.yml jobs. It holds a Workshop
-# Tools release tag of mercs2-wad-simulator, not qm's own version: v1.19.2 carries qm 6.0.0, and the step
+# Tools release tag of mercs2-wad-simulator, not qm's own version: v1.20.0 carries qm 7.1.0, and the step
 # below prints the version the tag carries. Raise it to the tag of the release that carries the qm this
 # manifest needs. There is no digest to bump alongside it: the expected sha256 is read from GitHub's own
 # record of the release asset.
