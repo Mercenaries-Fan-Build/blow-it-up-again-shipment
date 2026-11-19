@@ -54,7 +54,7 @@ title update v1.03 does:
   arrival (its receive, `0x3464C`, calls the click handler `0x1CF868` again); the ASI does not.
 - The DLC's target discs are drawn as PS3 draws them: they pulse, are removed when their pulse halts, fade
   from 400 m over 100 m (a disc's are 50 m over 10 m), and their model's height scale is 0.25 rather than one
-  over the radius.
+  over the radius. When one is removed, its model is released as a disc's is, as PS3 v1.03's remove does.
 
 To do this the ASI changes game code at fixed places, which it finds in the exe by byte pattern. If an exe
 does not match, the ASI stops the game at start-up with a message.
