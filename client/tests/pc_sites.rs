@@ -133,12 +133,38 @@ const V10_UPDATE: u32 = 0x004e_ae88;
 const V10_INLINE: [u32; 2] = [0x004c_07fe, 0x004c_0918];
 const V10_GUI_INIT: u32 = 0x004f_6a40;
 
+/// The native_hook `touches` of `manifest.yaml` that are not Lua fields (`Table.Field`), in order.
+fn manifest_code_touches() -> Vec<String> {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../manifest.yaml");
+    let text = std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    let manifest: serde_norway::Value = serde_norway::from_slice(&text).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    let contributions = manifest["contributions"].as_sequence().unwrap_or_else(|| panic!("{}: no contributions", path.display()));
+    let hooks: Vec<&serde_norway::Value> = contributions.iter().filter(|c| c["kind"].as_str() == Some("native_hook")).collect();
+    let [hook] = hooks[..] else { panic!("{}: {} native_hook contributions, not one", path.display(), hooks.len()) };
+    let touches = hook["touches"].as_sequence().unwrap_or_else(|| panic!("{}: the native_hook has no touches", path.display()));
+    touches
+        .iter()
+        .map(|t| t.as_str().unwrap_or_else(|| panic!("{}: a touch that is not a string: {t:?}", path.display())).to_string())
+        .filter(|t| !t.contains('.'))
+        .collect()
+}
+
 #[test]
-fn every_site_resolves_once_in_every_reference_build() {
+fn every_site_resolves_once_in_every_reference_build_and_the_manifest_declares_each_hook() {
+    let mut resolved = BTreeMap::new();
     for (id, v11, bytes) in images() {
         let img = Image::from_file(&bytes).unwrap_or_else(|e| panic!("{id}: {e}"));
         let got = resolve(&img).unwrap_or_else(|e| panic!("{id}: {e}"));
         println!("{id}: {got:#x?}");
         assert_eq!(got, expected(v11), "{id}");
+        resolved.insert(v11, got);
     }
+    // Each hook by name, then its VA in v1.1 and in v1.0 (`docs/modding/manifest_format.md`, "touches: how
+    // hooks are spelled").
+    let mut want = Vec::new();
+    for ((name, v11), (name10, v10)) in resolved[&true].hooks().into_iter().zip(resolved[&false].hooks()) {
+        assert_eq!(name, name10);
+        want.extend([format!("biua:{name}"), format!("0x{v11:08X}"), format!("0x{v10:08X}")]);
+    }
+    assert_eq!(manifest_code_touches(), want, "manifest.yaml's native_hook touches declare every hooked site");
 }
