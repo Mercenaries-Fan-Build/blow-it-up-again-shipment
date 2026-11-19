@@ -36,7 +36,27 @@ of rotations, so a plant can stand up to 10° off, and normals are a little coar
 | `data/dlc01-patch.wad` | compiled at build |
 | `data/dlc01.wad` | a copy of your `data/vz.wad`, made at deploy |
 | `DLC/dlc01/Data/Audios/*.pws` | built at build, 7 files |
-| `scripts/blow_it_up_again.asi` | the Lua functions the DLC calls that PC never had |
+| `scripts/blow_it_up_again.asi` | the Lua functions the DLC calls that PC never had (below) |
+
+The ASI adds, through m2-sdk, the engine functions the DLC's scripts call that PC never registered:
+`Net.DLCGetMountPoint`, `Human.SetChatterSet`, `Gui.SetMapCorrectionOffset` and `Gui.GetMapCorrectionOffset`,
+`Gui._MarkerAddDiscDLC` with its alias `Marker.AddDiscDLC`, and `Object.GetInfiniteAmmo`. They do what the PS3
+title update v1.03 does:
+
+- The map correction moves and scales the map: the minimap, the GPS line, the radar, the co-op midpoint and
+  the PDA map click. The DLC's PDA sets its own values. When the game releases its GUI system, the values go
+  back to PC's (35, 40, no scale), as on PS3.
+- A PDA map click now sets the GPS destination where PS3 v1.03 sets it, in the main campaign too. That is
+  35 m west and 40 m south of where retail PC set it: retail PC kept the map position the movie sent
+  (`FUN_006A0DD0`), but the minimap draws a world point 35/40 further along on the map, and the game's own Lua
+  reads the same click 35/40 back (`HandleBeaconCheck` in `mrxguipda.lua`). In co-op, a partner's
+  destination is converted again on arrival, as on PS3 v1.03.
+- The DLC's target discs are drawn as PS3 draws them: they pulse, are removed when their pulse halts, fade
+  from 400 m over 100 m (a disc's are 50 m over 10 m), and their model's height scale is 0.25 rather than one
+  over the radius.
+
+To do this the ASI changes game code at fixed places, which it finds in the exe by byte pattern. If an exe
+does not match, the ASI stops the game at start-up with a message.
 
 The DLC's leaderboards come from multiplayer-restored: it posts your best score per contract to its server
 as your multiplayer-restored account, when you have signed in online that session; without a session,
