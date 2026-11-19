@@ -815,35 +815,41 @@ fn install(s: &Sites) -> Result<(), String> {
         store(&R_MARKER_CHECK[k][0], mk.disc_checks[k].resume);
         store(&R_MARKER_CHECK[k][1], mk.disc_check_taken[k]);
     }
-    let hooks: [(&str, u32, unsafe extern "C" fn()); 22] = [
-        ("minimap", m.minimap.va, detour_minimap),
-        ("GPS line offsets", m.gps_load[0].va, detour_gps_load_first),
-        ("GPS line offsets, again", m.gps_load[1].va, detour_gps_load_again),
-        ("GPS line scale 1", m.gps_scale[0].va, detour_gps_scale1),
-        ("GPS line scale 2", m.gps_scale[1].va, detour_gps_scale2),
-        ("GPS line scale 3", m.gps_scale[2].va, detour_gps_scale3),
-        ("GPS line scale 4", m.gps_scale[3].va, detour_gps_scale4),
-        ("GPS line scale 5", m.gps_scale[4].va, detour_gps_scale5),
-        ("GPS line scale 6", m.gps_scale[5].va, detour_gps_scale6),
-        ("radar blip", m.radar.va, detour_radar),
-        ("co-op midpoint x", m.coop[0].va, detour_coop_x),
-        ("co-op midpoint z", m.coop[1].va, detour_coop_z),
-        ("PDA map click", m.pda.va, detour_pda),
-        ("system deactivate", r.update.va, detour_deactivate_update),
-        ("system release (reset all)", r.inline[0].va, detour_inline_release),
-        ("system acquire (reset all)", r.inline[1].va, detour_inline_acquire),
-        ("marker flag byte", mk.flag.va, detour_marker_flag),
-        ("marker hibernation distance", mk.hibernation.va, detour_marker_hibernation),
-        ("marker kind switch", mk.switch.va, detour_marker_switch),
-        ("marker Y scale", mk.scale.va, detour_marker_scale),
-        ("marker disc test 1", mk.disc_checks[0].va, detour_marker_check1),
-        ("marker disc test 2", mk.disc_checks[1].va, detour_marker_check2),
-    ];
-    for (what, va, detour) in hooks {
-        unsafe { rt::hook_attach(va as usize as *mut c_void, detour as *mut c_void, None, what) }?;
-        log(&format!("[*] blow_it_up_again: hooked the {what} at {va:#x}"));
+    for (name, va) in s.hooks() {
+        let detour = detour(name)?;
+        unsafe { rt::hook_attach(va as usize as *mut c_void, detour as *mut c_void, None, name) }?;
+        log(&format!("[*] blow_it_up_again: hooked {name} at {va:#x}"));
     }
     Ok(())
+}
+
+/// The detour of the site [`Sites::hooks`] names `name`.
+fn detour(name: &str) -> Result<unsafe extern "C" fn(), String> {
+    Ok(match name {
+        "minimap" => detour_minimap,
+        "gps_offsets" => detour_gps_load_first,
+        "gps_offsets_again" => detour_gps_load_again,
+        "gps_scale_1" => detour_gps_scale1,
+        "gps_scale_2" => detour_gps_scale2,
+        "gps_scale_3" => detour_gps_scale3,
+        "gps_scale_4" => detour_gps_scale4,
+        "gps_scale_5" => detour_gps_scale5,
+        "gps_scale_6" => detour_gps_scale6,
+        "radar_blip" => detour_radar,
+        "coop_midpoint_x" => detour_coop_x,
+        "coop_midpoint_z" => detour_coop_z,
+        "pda_click" => detour_pda,
+        "system_deactivate" => detour_deactivate_update,
+        "systems_release" => detour_inline_release,
+        "systems_acquire" => detour_inline_acquire,
+        "marker_flag" => detour_marker_flag,
+        "marker_hibernation" => detour_marker_hibernation,
+        "marker_kind_switch" => detour_marker_switch,
+        "marker_y_scale" => detour_marker_scale,
+        "marker_disc_test_1" => detour_marker_check1,
+        "marker_disc_test_2" => detour_marker_check2,
+        _ => return Err(format!("no detour for the hooked site {name:?}")),
+    })
 }
 
 fn start() -> Result<(), String> {
