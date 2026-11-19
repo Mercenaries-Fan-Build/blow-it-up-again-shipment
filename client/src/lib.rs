@@ -7,12 +7,17 @@
 //! without a log line; `Net.DLCGetMountPoint` alone stops the level's sound bootstrap before any bank
 //! loads. This ASI registers them through m2-sdk.dll's Lua host, into the engine's own tables.
 //!
-//! Module map: [`registry`] (every name the ASI adds), [`net`] and [`human`] (what each `Net` and `Human`
-//! function does, independent of how it is called), and the Windows-only entry point and registration in `win`.
+//! Module map: [`registry`] (every name the ASI adds), [`net`], [`human`], [`map_correction`], [`marker`] and
+//! [`object`] (what each function does, independent of how it is called), [`sites`] (the PC code they call and
+//! hook, found by signature), and the Windows-only entry point, registration and hooks in `win`.
 
 pub mod human;
+pub mod map_correction;
+pub mod marker;
 pub mod net;
+pub mod object;
 pub mod registry;
+pub mod sites;
 
 #[cfg(all(windows, target_arch = "x86"))]
 mod win;
