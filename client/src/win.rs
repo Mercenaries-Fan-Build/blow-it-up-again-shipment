@@ -786,6 +786,67 @@ macro_rules! detour_marker_check {
 detour_marker_check!(detour_marker_check1, "bl", 0);
 detour_marker_check!(detour_marker_check2, "dl", 1);
 
+/// The marker container and remove's slot (what its `.text` entry jumps through).
+static MARKER_CONTAINER: AtomicUsize = AtomicUsize::new(0);
+static REMOVE_SLOT: AtomicUsize = AtomicUsize::new(0);
+
+/// Remove, `EAX` = the marker id, one stack argument the caller pops: a DLC disc's record is shown to remove
+/// as a disc ([`crate::marker::for_remove`]) for the call, so it gets the cleanup PS3 v1.03 gives kind 3,
+/// and if the record is still there afterwards it is a DLC disc again ([`crate::marker::after_remove`]).
+/// The record is found as remove itself finds it: the engine's lookup (`ECX` = container, `EAX` = id; the
+/// record or 0), which keeps `EBX`, `ESI`, `EDI`.
+#[unsafe(naked)]
+unsafe extern "C" fn detour_marker_remove() {
+    core::arch::naked_asm!(
+        "push esi",
+        "push edi",
+        "push ebx",
+        "mov esi, eax",
+        "xor edi, edi",
+        "mov ecx, dword ptr [{container}]",
+        "call dword ptr [{lookup}]",
+        "test eax, eax",
+        "jz 2f",
+        "mov bl, byte ptr [eax]",
+        "and bl, {mask}",
+        "cmp bl, {dlc}",
+        "jne 2f",
+        "xor byte ptr [eax], {swap}",
+        "mov edi, 1",
+        "2:",
+        "mov eax, esi",
+        // The caller's argument: above the three saved registers and the return address.
+        "push dword ptr [esp + 16]",
+        "mov ecx, dword ptr [{slot}]",
+        "call dword ptr [ecx]",
+        "add esp, 4",
+        "test edi, edi",
+        "jz 3f",
+        "mov eax, esi",
+        "mov ecx, dword ptr [{container}]",
+        "call dword ptr [{lookup}]",
+        "test eax, eax",
+        "jz 3f",
+        "mov bl, byte ptr [eax]",
+        "and bl, {mask}",
+        "cmp bl, {disc}",
+        "jne 3f",
+        "xor byte ptr [eax], {swap}",
+        "3:",
+        "pop ebx",
+        "pop edi",
+        "pop esi",
+        "ret",
+        container = sym MARKER_CONTAINER,
+        lookup = sym LOOKUP_FN,
+        slot = sym REMOVE_SLOT,
+        mask = const KIND_MASK,
+        dlc = const KIND_DLC_DISC << KIND_SHIFT,
+        disc = const KIND_DISC << KIND_SHIFT,
+        swap = const crate::marker::DLC_TO_DISC,
+    );
+}
+
 fn store(slot: &AtomicUsize, va: u32) {
     slot.store(va as usize, Ordering::Release);
 }
@@ -822,6 +883,11 @@ fn install(s: &Sites) -> Result<(), String> {
         store(&R_MARKER_CHECK[k][0], mk.disc_checks[k].resume);
         store(&R_MARKER_CHECK[k][1], mk.disc_check_taken[k]);
     }
+    store(&MARKER_CONTAINER, mk.container);
+    store(&REMOVE_SLOT, mk.remove_slot);
+    if LOOKUP_FN.load(Ordering::Acquire) == 0 {
+        return Err("the marker remove's hook needs the component lookup, which is not resolved".into());
+    }
     for (name, va) in s.hooks() {
         let detour = detour(name)?;
         unsafe { rt::hook_attach(va as usize as *mut c_void, detour as *mut c_void, None, name) }?;
@@ -855,6 +921,7 @@ fn detour(name: &str) -> Result<unsafe extern "C" fn(), String> {
         "marker_y_scale" => detour_marker_scale,
         "marker_disc_test_1" => detour_marker_check1,
         "marker_disc_test_2" => detour_marker_check2,
+        "marker_remove" => detour_marker_remove,
         _ => return Err(format!("no detour for the hooked site {name:?}")),
     })
 }
