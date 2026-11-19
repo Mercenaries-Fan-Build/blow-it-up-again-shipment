@@ -118,6 +118,9 @@ fn expected(v11: bool) -> Sites {
             scale: hook(pick(0x0061_aae4, 0x0061_abe4), 13),
             disc_checks: [hook(pick(0x0061_ac87, 0x0061_ad87), 8), hook(pick(0x0061_ad11, 0x0061_ae11), 8)],
             disc_check_taken: [pick(0x0061_acc3, 0x0061_adc3), pick(0x0061_ad3e, 0x0061_ae3e)],
+            container: pick(0x017b_e248, 0x017b_f248),
+            remove: pick(0x0061_a7d0, 0x0061_a8d0),
+            remove_slot: pick(0x024d_cc68, 0x0245_e17c),
         },
     }
 }
@@ -157,6 +160,11 @@ fn every_site_resolves_once_in_every_reference_build_and_the_manifest_declares_e
         let got = resolve(&img).unwrap_or_else(|e| panic!("{id}: {e}"));
         println!("{id}: {got:#x?}");
         assert_eq!(got, expected(v11), "{id}");
+        // The marker remove's hook finds the record with the component lookup it shares with
+        // Human.SetChatterSet: the function remove's body calls (`mov ecx,0x17BE248; call 0x587D80`, v1.0
+        // `0x5857E0`).
+        let chatter = mercs2_formats::chatter_sites::resolve(&img).unwrap_or_else(|e| panic!("{id}: {e}"));
+        assert_eq!(chatter.lookup, if v11 { 0x0058_7d80 } else { 0x0058_57e0 }, "{id} lookup");
         resolved.insert(v11, got);
     }
     // Each hook by name, then its VA in v1.1 and in v1.0 (`docs/modding/manifest_format.md`, "touches: how
