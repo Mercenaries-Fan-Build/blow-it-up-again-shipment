@@ -22,7 +22,9 @@
 //! The PDA click handler stores the movie's map position `Q` raw at `this+0x39C`/`+0x3A0` (`EDI` = this)
 //! and sends it in the `SetGPSDest` event; PS3 v1.03 sends the same raw `Q` in the event and stores
 //! `Q / s − x`. The hook runs after the event is sent, before the stored values are read for the network
-//! packet, so both keep PS3's values.
+//! packet, so both keep PS3's values. It converts only the PDA's own click: when the handler's parameter
+//! (`[esp+0x54]` there) is 1, the call is the co-op receive of a partner's already converted position (v1.1
+//! `0x006FE2B6`), which PS3 v1.03 (`0x0003464C` → `0x001CF868`) converts a second time.
 //!
 //! The reset (PS3 v1.03 PgSysGUI vtable slot 7, `0x3D4908`, run when the GUI system is released): on PC that
 //! slot is `vtable+0x18`, the shared `ret` stub, in `.rdata`. Every place the engine calls `vtable+0x18` on
@@ -306,6 +308,9 @@ const GPS_AGAIN_X_AT: usize = 18;
 const COOP_X_AT: usize = 8;
 const COOP_Z_AT: usize = 12;
 const PDA_FLAG_AT: usize = 7;
+/// Where the click handler's parameter (0: the PDA's own click; 1: a co-op partner's, from the receive of
+/// message `0x14`) is, `ESP`-relative, at the flag test: the `cmp byte [esp+0x54],0` after it reads it.
+pub const PDA_PARAM_ESP: u8 = 0x54;
 /// An inlined update's deactivate path (`mov eax,[edx+0x18]`) starts this far into its hooked window.
 const INLINE_DEACTIVATE_AT: u32 = 13;
 /// `mov eax,[edx+0x18]; call eax` (or `+0x14`): the state store follows it.
@@ -706,6 +711,9 @@ mod tests {
         assert_eq!(toks(Site::CoopX)[at(Site::CoopX)..][..4], ["f3", "0f", "58", "05"]);
         assert_eq!(toks(Site::CoopZ)[at(Site::CoopZ)..][..4], ["f3", "0f", "58", "0d"]);
         assert_eq!(toks(Site::PdaFlag)[at(Site::PdaFlag)..][..2], ["80", "3d"]);
+        // `cmp byte [esp+0x54],0`, after the flag test's `je`: the parameter the hook tests.
+        let param = format!("{PDA_PARAM_ESP:02x}");
+        assert_eq!(toks(Site::PdaFlag)[14..][..5], ["80", "7c", "24", param.as_str(), "00"], "the parameter the hook tests");
         assert_eq!(toks(Site::DeactivateUpdate)[at(Site::DeactivateUpdate)..][..5], ["8b", "42", "18", "ff", "d0"]);
         for s in [Site::DeactivateRelease, Site::DeactivateAcquire] {
             let all = toks(s);
