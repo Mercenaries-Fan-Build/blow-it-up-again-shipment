@@ -1,0 +1,36 @@
+[package]
+name = "blow_it_up_again"
+version = "0.1.0"
+description = "Blow It Up Again ASI: the Lua engine functions the DLC calls that PC v1.1 never registered"
+edition = "2024"
+license = "MIT"
+publish = false
+
+# Standalone package: its own workspace root.
+[workspace]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# m2-sdk.dll's bindings (mercs2_formats::mod_runtime) and the level folder (mercs2_formats::dlc_mount).
+mercs2_formats = "6.0.3"
+
+[dev-dependencies]
+# tests/lua_surface.rs reads the native_hook touches of the Shipments manifest.yaml requires. serde_norway is
+# the maintained fork of serde-yaml, the YAML crate qm (mercs2_quartermaster) reads manifests with.
+serde_norway = "0.9"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_System_LibraryLoader",
+    "Win32_System_SystemServices",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
