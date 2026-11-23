@@ -3,7 +3,7 @@ format: 2
 shipment:
   name: blow-it-up-again
   title: Blow It Up Again
-  version: 0.4.0
+  version: 0.5.0
   target: retail
   authors: [Austin Kregel]
   description: The Blow It Up Again DLC as a PC level, built on the player's machine from Sony's PS3 package.
