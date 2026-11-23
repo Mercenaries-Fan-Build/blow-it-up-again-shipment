@@ -357,7 +357,7 @@ checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
 
 [[package]]
 name = "loadprobe"
-version = "2.4.1"
+version = "2.4.2"
 dependencies = [
  "clap",
  "colored",
@@ -373,7 +373,7 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "mercs2_formats"
-version = "6.0.3"
+version = "7.0.0"
 dependencies = [
  "aes",
  "cmac",
