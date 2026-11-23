@@ -14,7 +14,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # m2-sdk.dll's bindings (mercs2_formats::mod_runtime) and the level folder (mercs2_formats::dlc_mount).
-mercs2_formats = "7.0.0"
+mercs2_formats = "7.1.0"
 
 [dev-dependencies]
 # tests/lua_surface.rs reads the native_hook touches of the Shipments manifest.yaml requires. serde_norway is
