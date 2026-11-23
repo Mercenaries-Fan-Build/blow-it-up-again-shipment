@@ -7,7 +7,7 @@ shipment:
   target: retail
   authors: [Austin Kregel]
   description: The Blow It Up Again DLC as a PC level, built on the player's machine from Sony's PS3 package.
-  quartermaster: ">=7.3.0, <8"
+  quartermaster: ">=7.4.0, <8"
   tags: [dlc, level]
 
 load:
