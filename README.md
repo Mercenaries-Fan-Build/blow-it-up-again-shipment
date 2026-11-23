@@ -8,7 +8,7 @@ converts it on your machine, and builds the level from the result, so the rest o
 
 Install it with Modkit (from mercs.ink) and Build & Deploy. The first build downloads the package (about
 390 MB) into qm's cache and converts it, which takes a minute or two; later builds reuse both. Then start
-the game: **Extras ▸ DLC ▸ Blow It Up Again** starts the DLC's level.
+the game: **Extras ▸ Downloadable Content ▸ Blow It Up Again**, then pick a hero, starts the DLC's level.
 
 In the main campaign, Eva's PMC shop sells the DLC's vehicles (the M1A1 and M1A3 tanks, the Hammerhead,
 the Recoilless Panhard and The Hadron), and the wardrobe offers the Obama, Palin and Gramps outfits.

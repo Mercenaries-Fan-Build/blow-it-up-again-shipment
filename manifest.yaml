@@ -7,7 +7,7 @@ shipment:
   target: retail
   authors: [Austin Kregel]
   description: The Blow It Up Again DLC as a PC level, built on the player's machine from Sony's PS3 package.
-  quartermaster: ">=7.1.0, <8"
+  quartermaster: ">=7.3.0, <8"
   tags: [dlc, level]
 
 load:
@@ -119,12 +119,6 @@ contributions:
       - "biua:marker_remove"
       - "0x0061A7D0"
       - "0x0061A8D0"
-  # Blow It Up Again in the shell's Extras > DLC page: the front end's library lists the entry and starts the
-  # dlc01 level when it is chosen (src/lua/biua_extras_dlc.lua).
-  - kind: add_script
-    name: biua_extras_dlc
-    source: src/lua/biua_extras_dlc.lua
-    load: { when: shell.boot, in: [front_end] }
   # The DLC's vehicles in the main campaign, sold in Eva's PMC shop: the M1A1 and M1A3 tanks, the Hammerhead
   # (DLC Armored Monster), the Recoilless Panhard and The Hadron (DLC_Veyron). Their level-only assets ship in
   # the overlay as level: vz rows, converted from the package like the dlc01 level; their templates are
@@ -846,8 +840,14 @@ contributions:
     type: texture
     name: pmc_hum_sarah_head_nm
     from: biua_ps3
-  # The DLC's own level: every asset and stream of the package's conversion.
+  # The DLC's own level: every asset and stream of the package's conversion. qm lists it on the Extras ▸
+  # Downloadable Content page. mission and details: the DLC's English stringdb (src/level/stringdb/
+  # 0x9FE1E7D8.0.ucfx, UTF-16LE at 0x15aa and 0x15d6); date: the final DLC build's archive date
+  # (notes repo docs/dlc_loader_cross_reference.md:433).
   - kind: add_level
     name: dlc01
     display: Blow It Up Again
+    mission: Blow It Up Again Pack
+    details: Blow it up again with four new explosive missions!
+    date: 2008-11-25
     from: biua_ps3
